@@ -1,0 +1,6 @@
+-*- mode: org; mode: visual-line; -*-
+#+STARTUP: indent logdone lognoteclock-out
+
+* websocket-midi-cljs
+
+MIDI note echoing between browsers using WebSockets. Written in ClojureScript
