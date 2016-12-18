@@ -22,6 +22,10 @@
 
 (def socket (io.connect "http://localhost:5000"))
 
+(.on socket "to client"
+     (fn [msg]
+       (js/console.log "msg" msg)))
+
 (defn consume [inputs]
   (when-let [n (.next inputs)]
     (when (not (.-done n))
