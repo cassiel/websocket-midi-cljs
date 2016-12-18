@@ -1,9 +1,8 @@
 (ns client.core
-  (:require [reagent.core :as reagent :refer [atom]]))
+  (:require [reagent.core :as reagent :refer [atom]]
+            [cljsjs.socket-io]))
 
 (enable-console-print!)
-
-(println "This text is printed from src/client/core.cljs. Go ahead and edit it and see reloading in action.")
 
 ;; define your app data so that it doesn't get over-written on reload
 
@@ -21,29 +20,30 @@
   ;; (swap! app-state update-in [:__figwheel_counter] inc)
   )
 
+(def socket (io.connect "http://localhost:5000"))
+
 (defn consume [inputs]
   (when-let [n (.next inputs)]
     (when (not (.-done n))
-      (conj (consume inputs) (.-value n)))
-    )
-  )
+      (conj (consume inputs) (.-value n)))))
 
 (defn on-midi-message [msg]
-  (js/console.log msg))
+  (do
+    (js/console.log msg)
+    (.emit socket "my event" #js {:midi (.-data msg)})))
 
 (defn on-midi-success [midi-access]
   (js/console.log "MIDI access object: " midi-access)
   (js/console.log "inputs: " (clj->js (consume (.values (.-inputs midi-access)))))
   (doseq [i (consume (.values (.-inputs midi-access)))]
-    (set! (.-onmidimessage i) on-midi-message)
-    )
-
-  )
+    (js/console.log (.-manufacturer i) (.-name i))
+    (set! (.-onmidimessage i) on-midi-message)))
 
 (defn on-midi-failure [e]
-  (js/alert (str "No MIDI support in browser: " e))
-  )
+  (js/alert (str "No MIDI support in browser: " e)))
 
 (when-let [f (.-requestMIDIAccess js/navigator)]
-  (.then (.requestMIDIAccess js/navigator #js {:sysex false}) on-midi-success on-midi-failure)
-  )
+  (.then (.requestMIDIAccess js/navigator #js {:sysex false}) on-midi-success on-midi-failure))
+
+(let [socket (io.connect "http://localhost:5000")]
+  (.on socket "connect" #(js/console.log "socket connected")))
