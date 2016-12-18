@@ -46,8 +46,16 @@
 (defn on-midi-failure [e]
   (js/alert (str "No MIDI support in browser: " e)))
 
-(when-let [f (.-requestMIDIAccess js/navigator)]
+#_ (when-let [f (.-requestMIDIAccess js/navigator)]
   (.then (.requestMIDIAccess js/navigator #js {:sysex false}) on-midi-success on-midi-failure))
 
 (let [socket (io.connect "http://localhost:5000")]
   (.on socket "connect" #(js/console.log "socket connected")))
+
+(.enable js/WebMidi (fn [err] (if err
+                                (js/alert (str "Could not enable MIDI" err))
+                                (do
+                                  (js/console.log (.-inputs js/WebMidi))
+                                  (let [keys (js/WebMidi.getInputByName "LPD8")]
+                                    (.addListener keys "noteon" "all" #(do (js/console.log "noteon" %)
+                                                                           (.emit socket "my event" #js {:midi (.-data %)}))))))))
