@@ -56,6 +56,6 @@
                                 (js/alert (str "Could not enable MIDI" err))
                                 (do
                                   (js/console.log (.-inputs js/WebMidi))
-                                  (let [keys (js/WebMidi.getInputByName "LPD8")]
+                                  (when-let [keys (js/WebMidi.getInputByName "LPD8")]
                                     (.addListener keys "noteon" "all" #(do (js/console.log "noteon" %)
                                                                            (.emit socket "my event" #js {:midi (.-data %)}))))))))
