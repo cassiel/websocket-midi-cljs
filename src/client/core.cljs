@@ -25,32 +25,9 @@
 
 (def socket (io.connect HOST))
 
-(.on socket "to client"
+(.on socket "to_client"
      (fn [msg]
        (js/console.log "msg" msg)))
-
-(defn consume [inputs]
-  (when-let [n (.next inputs)]
-    (when (not (.-done n))
-      (conj (consume inputs) (.-value n)))))
-
-(defn on-midi-message [msg]
-  (do
-    (js/console.log msg)
-    (.emit socket "my event" #js {:midi (.-data msg)})))
-
-(defn on-midi-success [midi-access]
-  (js/console.log "MIDI access object: " midi-access)
-  (js/console.log "inputs: " (clj->js (consume (.values (.-inputs midi-access)))))
-  (doseq [i (consume (.values (.-inputs midi-access)))]
-    (js/console.log (.-manufacturer i) (.-name i))
-    (set! (.-onmidimessage i) on-midi-message)))
-
-(defn on-midi-failure [e]
-  (js/alert (str "No MIDI support in browser: " e)))
-
-#_ (when-let [f (.-requestMIDIAccess js/navigator)]
-  (.then (.requestMIDIAccess js/navigator #js {:sysex false}) on-midi-success on-midi-failure))
 
 (let [socket (io.connect HOST)]
   (.on socket "connect" #(js/console.log "socket connected")))
@@ -61,4 +38,6 @@
                                   (js/console.log (.-inputs js/WebMidi))
                                   (when-let [keys (js/WebMidi.getInputByName "LPD8")]
                                     (.addListener keys "noteon" "all" #(do (js/console.log "noteon" %)
-                                                                           (.emit socket "my event" #js {:midi (.-data %)}))))))))
+                                                                           (.emit socket "to_server" #js {:midi (.-data %)}))))))))
+
+(.emit socket "to_server" #js {:hello "World"})
