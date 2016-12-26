@@ -4,6 +4,9 @@
 
 (enable-console-print!)
 
+(def HOST "https://boiling-shore-13036.herokuapp.com/")
+;;(def HOST "http://localhost:5000")
+
 ;; define your app data so that it doesn't get over-written on reload
 
 (defonce app-state (atom {:text "Hello world!"}))
@@ -20,7 +23,7 @@
   ;; (swap! app-state update-in [:__figwheel_counter] inc)
   )
 
-(def socket (io.connect "http://localhost:5000"))
+(def socket (io.connect HOST))
 
 (.on socket "to client"
      (fn [msg]
@@ -49,7 +52,7 @@
 #_ (when-let [f (.-requestMIDIAccess js/navigator)]
   (.then (.requestMIDIAccess js/navigator #js {:sysex false}) on-midi-success on-midi-failure))
 
-(let [socket (io.connect "http://localhost:5000")]
+(let [socket (io.connect HOST)]
   (.on socket "connect" #(js/console.log "socket connected")))
 
 (.enable js/WebMidi (fn [err] (if err

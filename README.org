@@ -8,34 +8,3 @@ MIDI note echoing between browsers using WebSockets. Written in ClojureScript
 ** Client
 
  Figwheel project, assumes MIDI support in browser (such as Chrome).
-
-** Server
-
- Flask server. Python 2 is fine (and Python 3 virtual environments are broken in macOS.) Create and activate a virtual environment:
-
- #+BEGIN_SRC shell-script
-   virtualenv ~/Desktop/venv2
-   . ~/Desktop/venv2/bin/activate
- #+END_SRC
-
- Install packages:
-
- #+BEGIN_SRC shell-script
-   pip install flask
-   pip install flask-socketio
-   pip install flask-cors
- #+END_SRC
-
- (~flask-cors~ to temporarily enable cross-scripting - see [[https://flask-cors.readthedocs.io/en/latest/][here]].)
-
-*** Heroku
-
-- [[https://devcenter.heroku.com/articles/getting-started-with-python][instructions]]. Boilerplate for deploying the "getting started" Python app:
-
-  #+BEGIN_SRC shell-script
-    heroku login
-    git clone https://github.com/heroku/python-getting-started.git
-    cd python-getting-started
-    heroku create
-    git push heroku master
-  #+END_SRC
