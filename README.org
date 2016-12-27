@@ -3,8 +3,12 @@
 
 * websocket-midi-cljs
 
-MIDI note echoing between browsers using WebSockets. Written in ClojureScript
+MIDI note echoing between browsers using WebSockets. Written in ClojureScript.
 
 ** Client
 
  Figwheel project, assumes MIDI support in browser (such as Chrome).
+
+** Server
+
+See the [[https://github.com/cassiel/websocket-midi-server][GitHub project]].
