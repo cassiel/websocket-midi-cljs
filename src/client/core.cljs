@@ -27,17 +27,33 @@
 
 (.on socket "to_client"
      (fn [msg]
-       (js/console.log "msg" msg)))
+       (js/console.log "msg to client" msg)
+       (when-let [midi-bytes (.-midi msg)]
+         (when-let [output (.getOutputByName js/WebMidi "to Max 1")]
+          (js/console.log "bytes" midi-bytes)
+          (let [status (bit-and (aget midi-bytes 0) 0xF0)
+                pitch (aget midi-bytes 1)]
+            (js/console.log "status" status "pitch" pitch)
+            (case status
+              0x90 (do (js/console.log "< note on" pitch)
+                       (.playNote output pitch 1))
+              0x80 (do (js/console.log "< note off" pitch)
+                       (.stopNote output pitch 1))
+              (js/console.log "other status")))))))
 
-(let [socket (io.connect HOST)]
+#_ (let [socket (io.connect HOST)]
   (.on socket "connect" #(js/console.log "socket connected")))
 
 (.enable js/WebMidi (fn [err] (if err
                                 (js/alert (str "Could not enable MIDI" err))
                                 (do
-                                  (js/console.log (.-inputs js/WebMidi))
+                                  (js/console.log "INPUTS"  (.-inputs js/WebMidi))
+                                  (js/console.log "OUTPUTS" (.-outputs js/WebMidi))
+
                                   (when-let [keys (js/WebMidi.getInputByName "LPD8")]
-                                    (.addListener keys "noteon" "all" #(do (js/console.log "noteon" %)
-                                                                           (.emit socket "to_server" #js {:midi (.-data %)}))))))))
+                                    (.addListener keys "noteon"  "all" #(do (js/console.log "noteon" %)
+                                                                            (.emit socket "to_server" #js {:midi (.-data %)})))
+                                    (.addListener keys "noteoff" "all" #(do (js/console.log "noteoff" %)
+                                                                            (.emit socket "to_server" #js {:midi (.-data %)})))                                    )))))
 
 (.emit socket "to_server" #js {:hello "World"})
