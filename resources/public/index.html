@@ -10,10 +10,10 @@
       <h2>Figwheel template</h2>
       <p>Checkout your developer console.</p>
     </div>
-    <!-- In the server code, this tag gets generated dynamically ("MAIN_SITE" or "SATELLITE"): -->
-    <script>var kind = "MAIN_SITE";</script>
 
     <script src="jslib/webmidi.min.js" type="text/javascript"></script>
     <script src="js/compiled/client.js" type="text/javascript"></script>
+    <!-- In the server code, this tag gets generated dynamically ("MAIN_SITE" or "SATELLITE" or "LIST"): -->
+    <script>client.core.SATELLITE();</script>
   </body>
 </html>
