@@ -25,6 +25,14 @@
 
 (def socket (io.connect HOST))
 
+(defn note-name [pitch]
+  (let [octave (int (/ pitch 12))
+        note (mod pitch 12)
+        names ["C" "C#" "D" "D#" "E" "F"
+               "F#" "G" "G#" "A" "A#" "B"]]
+    (str (names note)
+         (- octave 2))))
+
 (defn when-MIDI [f]
   (.enable js/WebMidi (fn [err]
                         (if err
@@ -38,30 +46,36 @@
                    (fn [msg]
                      (js/console.log "msg to client" msg)
                      (when-let [midi-bytes (.-midi msg)]
-                       (when-let [output (.getOutputByName js/WebMidi "to Max 1")]
-                         (js/console.log "bytes" midi-bytes)
-                         (let [status (bit-and (aget midi-bytes 0) 0xF0)
-                               pitch (aget midi-bytes 1)]
-                           (js/console.log "status" status "pitch" pitch)
-                           (case status
-                             0x90 (do (js/console.log "< note on" pitch)
-                                      (.playNote output pitch 1))
-                             0x80 (do (js/console.log "< note off" pitch)
-                                      (.stopNote output pitch 1))
-                             (js/console.log "other status")))))))))
+                       (if-let [output (.getOutputByName js/WebMidi "to Max 1")]
+                         (do
+                           (js/console.log "bytes" midi-bytes)
+                           (let [status (bit-and (aget midi-bytes 0) 0xF0)
+                                 pitch (aget midi-bytes 1)
+                                 velocity (aget midi-bytes 2)]
+                             (js/console.log "status" status "pitch" pitch)
+                             (case status
+                               0x90 (if (= velocity 0)
+                                      (do (js/console.log "< note off" pitch)
+                                          (.stopNote output pitch 1))
+                                      (do (js/console.log "< note on" pitch)
+                                          (.playNote output pitch 1)))
+                               0x80 (do (js/console.log "< note off" pitch)
+                                        (.stopNote output pitch 1))
+                               (js/console.log "other status"))))
+                         (js/console.log (str "Can't find " "to Max 1"))))))))
 
-(defn show-latch [how]
+(defn show-latch [how pitch]
   (swap! app-state
          assoc-in [:content 1]
-         [:div.row [:div.col-md-12 [:h2 (if how "ON" "OFF")]]]))
+         [:div.row [:div.col-md-12 [:h2 (if how "ON: " "OFF: ") (note-name pitch)]]]))
 
 (defn note-on-normal [midi]
   (.emit socket "to_server" #js {:midi midi})
-  (show-latch true))
+  (show-latch true (aget midi 1)))
 
 (defn note-off-normal [midi]
   (.emit socket "to_server" #js {:midi midi})
-  (show-latch false))
+  (show-latch false (aget midi 1)))
 
 (defn note-on-latch [midi]
   (let [status (aget midi 0)
@@ -72,7 +86,7 @@
         ]
     (js/console.log "latch data" (clj->js [status pitch (if how velocity 0)]))
     (.emit socket "to_server" (clj->js {:midi [status pitch (if how velocity 0)]}))
-    (show-latch how)))
+    (show-latch how pitch)))
 
 (defn note-off-latch [midi]
   )
@@ -83,22 +97,32 @@
 (defn SATELLITE
   "Take MIDI from foot switch, send up to server."
   []
-  (when-MIDI (fn [] (when-let [keys (js/WebMidi.getInputByName "LPD8")]
+  (when-MIDI (fn [] (if-let [keys (js/WebMidi.getInputByName "from Max 1")]
+                      (do
+                       (swap! app-state
+                              assoc :content
+                              [:div
+                               [:div.row [:div.col-md-12 [:h2 "OFF"]]]
+                               [:div.row [:div.col-md-12 [:iframe {:src "http://ipcamlive.com/player/player.php?alias=57c7d74347fa1"
+                                                                   :width "100%"
+                                                                   :height "100%"
+                                                                   :frameBorder 0}]]]
+                               ]
+                              )
+                       (show-latch false 0)
+                       (.addListener keys "noteon"  "all" #(do (js/console.log "noteon" %)
+                                                               (note-on (.-data %))))
+                       (.addListener keys "noteoff" "all" #(do (js/console.log "noteoff" %)
+                                                               (note-off (.-data %)))))
                       (swap! app-state
                              assoc :content
                              [:div
-                              [:div.row [:div.col-md-12 [:h2 "OFF"]]]
+                              [:div.row [:div.col-md-12 [:h2 "Cannot find " "from Max 1"]]]
                               [:div.row [:div.col-md-12 [:iframe {:src "http://ipcamlive.com/player/player.php?alias=57c7d74347fa1"
                                                                   :width "100%"
                                                                   :height "100%"
                                                                   :frameBorder 0}]]]
-                              ]
-                             )
-                      (show-latch false)
-                      (.addListener keys "noteon"  "all" #(do (js/console.log "noteon" %)
-                                                              (note-on (.-data %))))
-                      (.addListener keys "noteoff" "all" #(do (js/console.log "noteoff" %)
-                                                              (note-off (.-data %))))))))
+                              ])))))
 
 (defn LIST
   "List of MIDI devices."
@@ -124,4 +148,4 @@
   ;; (swap! app-state update-in [:__figwheel_counter] inc)
   )
 
-(SATELLITE)
+;;(SATELLITE)
