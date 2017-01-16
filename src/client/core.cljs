@@ -4,7 +4,8 @@
 
 (enable-console-print!)
 
-(def HOST "https://boiling-shore-13036.herokuapp.com/")
+;;(def HOST "https://boiling-shore-13036.herokuapp.com/")
+(def HOST "https://identity-noise.herokuapp.com/")
 ;;(def HOST "http://localhost:5000")
 
 (def LATCHING true)                     ; note-on to toggle behaviour...
@@ -94,10 +95,14 @@
 (def note-on (if LATCHING note-on-latch note-on-normal))
 (def note-off (if LATCHING note-off-latch note-off-normal))
 
+(def DEVICES ["from Max 1" "Logidy UMI3"])
+
 (defn SATELLITE
   "Take MIDI from foot switch, send up to server."
   []
-  (when-MIDI (fn [] (if-let [keys (js/WebMidi.getInputByName "from Max 1")]
+  (when-MIDI (fn [] (if-let [keys (reduce (fn [result name] (or result
+                                                                (js/WebMidi.getInputByName name)))
+                                          nil DEVICES)]
                       (do
                        (swap! app-state
                               assoc :content
@@ -117,7 +122,8 @@
                       (swap! app-state
                              assoc :content
                              [:div
-                              [:div.row [:div.col-md-12 [:h2 "Cannot find " "from Max 1"]]]
+                              [:div.row [:div.col-md-12 [:h2 "Cannot find device"]]]
+                              [:div.row [:div.col-md-12 [:ul (map-indexed (fn [i t] [:li {:key i} "Tried: " t]) DEVICES)]]]
                               [:div.row [:div.col-md-12 [:iframe {:src "http://ipcamlive.com/player/player.php?alias=57c7d74347fa1"
                                                                   :width "100%"
                                                                   :height "100%"
