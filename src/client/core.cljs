@@ -21,6 +21,13 @@
 (defn hello-world []
   (:content @app-state))
 
+(def camera-row
+  [:div.row [:div.col-md-12.cam [:iframe {:src "https://ipcamlive.com/player/player.php?alias=587ef72d38882"
+                                          :width "800px"
+                                          :height "450px"
+                                          :frameBorder 0
+                                          :autoPlay 1}]]])
+
 (reagent/render-component [hello-world]
                           (. js/document (getElementById "app")))
 
@@ -144,10 +151,7 @@
                               assoc :content
                               [:div
                                [:div.row [:div.col-md-12 [:h2 "OFF"]]]
-                               [:div.row [:div.col-md-12 [:iframe {:src "http://ipcamlive.com/player/player.php?alias=57c7d74347fa1"
-                                                                   :width "100%"
-                                                                   :height "100%"
-                                                                   :frameBorder 0}]]]
+                               camera-row
                                ]
                               )
                        (show-latch false 0)
