@@ -76,13 +76,13 @@
 (defn MAIN_SITE
   "Respond to MIDI coming in from the server, send to modular."
   []
-  (when-MIDI #(.on socket "to_client"
-                   (fn [msg]
-                     (js/console.log "msg to client" msg)
-                     (when-let [midi-bytes (.-midi msg)]
-                       (if-let [output (reduce (fn [result name] (or result
-                                                                     (js/WebMidi.getOutputByName name)))
-                                               nil INSTRUMENTS)]
+  (when-MIDI #(if-let [output (reduce (fn [result name] (or result
+                                                            (js/WebMidi.getOutputByName name)))
+                                      nil INSTRUMENTS)]
+                (.on socket "to_client"
+                     (fn [msg]
+                       (js/console.log "msg to client" msg)
+                       (when-let [midi-bytes (.-midi msg)]
                          (do
                            (js/console.log "bytes" midi-bytes)
                            (let [status (bit-and (aget midi-bytes 0) 0xF0)
@@ -94,12 +94,12 @@
                                       (central-note-off output pitch)
                                       (central-note-on output pitch))
                                0x80 (central-note-off output pitch)
-                               (js/console.log "other status"))))
-                         (swap! app-state
-                                assoc :content
-                                [:div
-                                 [:div.row [:div.col-md-12 [:h2 "Cannot find instrument"]]]
-                                 [:div.row [:div.col-md-12 [:ul (map-indexed (fn [i t] [:li {:key i} "Tried: " t]) INSTRUMENTS)]]]])))))))
+                               (js/console.log "other status")))))))
+                (swap! app-state
+                       assoc :content
+                       [:div
+                        [:div.row [:div.col-md-12 [:h2 "Cannot find instrument"]]]
+                        [:div.row [:div.col-md-12 [:ul (map-indexed (fn [i t] [:li {:key i} "Tried: " t]) INSTRUMENTS)]]]])                      )))
 
 (defn show-latch [how pitch]
   (swap! app-state
