@@ -8,12 +8,15 @@
 (def HOST "https://identity-noise.herokuapp.com/")
 ;;(def HOST "http://localhost:5000")
 
-(def LATCHING true)                     ; note-on to toggle behaviour...
+(def LATCHING true)                     ; note-on to toggle (satellites).
+(def SUMMING true)                      ; Doing summed note calculations for main client.
+(def PITCH-BASE 36)                     ; C1: - "off" pitch for modular.
 
 ;; define your app data so that it doesn't get over-written on reload
 
-(defonce app-state (atom {:content [:ul [:li "Hello world!"]]
-                          :state {:latch false}}))
+(defonce app-state (atom {:content [:ul [:li "Ready"]]
+                          :satellite-state {:latch false}
+                          :central-state {:latched-set #{}}}))
 
 (defn hello-world []
   (:content @app-state))
@@ -40,6 +43,36 @@
                           (js/alert (str "Could not enable MIDI" err))
                           (f)))))
 
+(defn put-latched-total [dev app]
+  (let [s (get-in app [:central-state :latched-set])
+        sum (reduce (fn [total n] (+ total (- n PITCH-BASE)))
+                    0
+                    s)
+        out-note (+ sum PITCH-BASE)]
+    (js/console.log "Central latched: " (str (map #(note-name %) s)) ", putting " (note-name out-note))
+    (swap! app-state
+           assoc :content
+           [:div
+            [:div.row [:div.col-md-12 [:h2 "Latched notes: " (str (map #(note-name %) s))]]]
+            [:div.row [:div.col-md-12 [:h3 "Output note: " (note-name out-note)]]]
+            ]
+           )
+    (.playNote dev out-note 1)))
+
+(defn central-note-on [dev pitch]
+  (js/console.log "< note on" pitch)
+  (if SUMMING
+    (put-latched-total dev (swap! app-state update-in [:central-state :latched-set] conj pitch))
+    (.playNote dev pitch 1)))
+
+(defn central-note-off [dev pitch]
+  (js/console.log "< note off" pitch)
+  (if SUMMING
+    (put-latched-total dev (swap! app-state update-in [:central-state :latched-set] disj pitch))
+    (.stopNote dev pitch 1)))
+
+(def INSTRUMENTS ["to Max 1" "USB Midi Dark Energy"])
+
 (defn MAIN_SITE
   "Respond to MIDI coming in from the server, send to modular."
   []
@@ -47,7 +80,9 @@
                    (fn [msg]
                      (js/console.log "msg to client" msg)
                      (when-let [midi-bytes (.-midi msg)]
-                       (if-let [output (.getOutputByName js/WebMidi "to Max 1")]
+                       (if-let [output (reduce (fn [result name] (or result
+                                                                     (js/WebMidi.getOutputByName name)))
+                                               nil INSTRUMENTS)]
                          (do
                            (js/console.log "bytes" midi-bytes)
                            (let [status (bit-and (aget midi-bytes 0) 0xF0)
@@ -56,14 +91,15 @@
                              (js/console.log "status" status "pitch" pitch)
                              (case status
                                0x90 (if (= velocity 0)
-                                      (do (js/console.log "< note off" pitch)
-                                          (.stopNote output pitch 1))
-                                      (do (js/console.log "< note on" pitch)
-                                          (.playNote output pitch 1)))
-                               0x80 (do (js/console.log "< note off" pitch)
-                                        (.stopNote output pitch 1))
+                                      (central-note-off output pitch)
+                                      (central-note-on output pitch))
+                               0x80 (central-note-off output pitch)
                                (js/console.log "other status"))))
-                         (js/console.log (str "Can't find " "to Max 1"))))))))
+                         (swap! app-state
+                                assoc :content
+                                [:div
+                                 [:div.row [:div.col-md-12 [:h2 "Cannot find instrument"]]]
+                                 [:div.row [:div.col-md-12 [:ul (map-indexed (fn [i t] [:li {:key i} "Tried: " t]) INSTRUMENTS)]]]])))))))
 
 (defn show-latch [how pitch]
   (swap! app-state
@@ -82,8 +118,8 @@
   (let [status (aget midi 0)
         pitch (aget midi 1)
         velocity (aget midi 2)
-        how (get-in (swap! app-state update-in [:state :latch] not)
-                    [:state :latch])
+        how (get-in (swap! app-state update-in [:satellite-state :latch] not)
+                    [:satellite-state :latch])
         ]
     (js/console.log "latch data" (clj->js [status pitch (if how velocity 0)]))
     (.emit socket "to_server" (clj->js {:midi [status pitch (if how velocity 0)]}))
@@ -95,14 +131,14 @@
 (def note-on (if LATCHING note-on-latch note-on-normal))
 (def note-off (if LATCHING note-off-latch note-off-normal))
 
-(def DEVICES ["from Max 1" "Logidy UMI3"])
+(def CONTROLLERS ["from Max 1" "Logidy UMI3"])
 
 (defn SATELLITE
   "Take MIDI from foot switch, send up to server."
   []
   (when-MIDI (fn [] (if-let [keys (reduce (fn [result name] (or result
                                                                 (js/WebMidi.getInputByName name)))
-                                          nil DEVICES)]
+                                          nil CONTROLLERS)]
                       (do
                        (swap! app-state
                               assoc :content
@@ -122,12 +158,9 @@
                       (swap! app-state
                              assoc :content
                              [:div
-                              [:div.row [:div.col-md-12 [:h2 "Cannot find device"]]]
-                              [:div.row [:div.col-md-12 [:ul (map-indexed (fn [i t] [:li {:key i} "Tried: " t]) DEVICES)]]]
-                              [:div.row [:div.col-md-12 [:iframe {:src "http://ipcamlive.com/player/player.php?alias=57c7d74347fa1"
-                                                                  :width "100%"
-                                                                  :height "100%"
-                                                                  :frameBorder 0}]]]
+                              [:div.row [:div.col-md-12 [:h2 "Cannot find controller"]]]
+                              [:div.row [:div.col-md-12 [:ul (map-indexed (fn [i t] [:li {:key i} "Tried: " t]) CONTROLLERS)]]]
+
                               ])))))
 
 (defn LIST
