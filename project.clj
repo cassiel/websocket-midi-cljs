@@ -11,7 +11,9 @@
                  [org.clojure/core.async "0.2.391"
                   :exclusions [org.clojure/tools.reader]]
                  [reagent "0.6.0"]
-                 [cljsjs/socket-io "1.6.0-0"]]
+                 [cljsjs/socket-io "1.6.0-0"]
+                 [alandipert/storage-atom "2.0.1"]
+                 [patisserie "0.1.1"]]
 
   :plugins [[lein-figwheel "0.5.8"]
             [lein-cljsbuild "1.1.4" :exclusions [[org.clojure/clojure]]]]

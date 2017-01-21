@@ -1,8 +1,16 @@
 (ns client.core
+  (:refer-clojure :exclude [uuid?])
   (:require [reagent.core :as reagent :refer [atom]]
+            [alandipert.storage-atom :refer [local-storage]]
             [cljsjs.socket-io]))
 
 (enable-console-print!)
+
+(def prefs (local-storage (atom {:c 0}) :id-prefs))
+
+(swap! prefs update :c inc)
+
+(js/console.log "Checking prefs, seeing " (:c @prefs))
 
 ;;(def HOST "https://boiling-shore-13036.herokuapp.com/")
 (def HOST "https://identity-noise.herokuapp.com/")
@@ -114,11 +122,13 @@
          [:div.row [:div.col-md-12 [:h2 (if how "ON: " "OFF: ") (note-name pitch)]]]))
 
 (defn note-on-normal [midi]
-  (.emit socket "to_server" #js {:midi midi})
+  (.emit socket "to_server" #js {:midi midi
+                                 :local-time (js/Date)})
   (show-latch true (aget midi 1)))
 
 (defn note-off-normal [midi]
-  (.emit socket "to_server" #js {:midi midi})
+  (.emit socket "to_server" #js {:midi midi
+                                 :local-time (js/Date)})
   (show-latch false (aget midi 1)))
 
 (defn note-on-latch [midi]
@@ -129,7 +139,8 @@
                     [:satellite-state :latch])
         ]
     (js/console.log "latch data" (clj->js [status pitch (if how velocity 0)]))
-    (.emit socket "to_server" (clj->js {:midi [status pitch (if how velocity 0)]}))
+    (.emit socket "to_server" (clj->js {:midi [status pitch (if how velocity 0)]
+                                        :local-time (js/Date)}))
     (show-latch how pitch)))
 
 (defn note-off-latch [midi]
