@@ -6,12 +6,6 @@
 
 (enable-console-print!)
 
-(def prefs (local-storage (atom {:c 0}) :id-prefs))
-
-(swap! prefs update :c inc)
-
-(js/console.log "Checking prefs, seeing " (:c @prefs))
-
 ;;(def HOST "https://boiling-shore-13036.herokuapp.com/")
 (def HOST "https://identity-noise.herokuapp.com/")
 ;;(def HOST "http://localhost:5000")
@@ -22,12 +16,38 @@
 
 ;; define your app data so that it doesn't get over-written on reload
 
-(defonce app-state (atom {:content [:ul [:li "Ready"]]
+(defonce app-state (atom {:content [:div
+                                    [:div.row [:div.col-md-12 [:h2 "Ready"]]]
+                                    [:div.row [:div.col-md-12]]
+                                    [:div.row [:div.col-md-12]]]
                           :satellite-state {:latch false}
                           :central-state {:latched-set #{}}}))
 
+(defn set-row [i html]
+  (swap! app-state assoc-in
+         [:content (inc i)]
+         [:div.row [:div.col-md-12 html]]))
+
 (defn hello-world []
   (:content @app-state))
+
+(def prefs (local-storage (atom {:c 0
+                                 :incoming nil}) :id-prefs))
+
+(add-watch prefs
+           :changed
+           (fn [_ _ _ v]
+             (let [entries (:incoming v)]
+               (set-row 2 [:ul (map-indexed (fn [i x] [:li {:key i}
+                                                       (:local-time x) ": " (:msg x) " " (:pitch x)])
+                                            (reverse (take 20 entries)))]))))
+
+(swap! prefs update :c inc)
+
+(js/console.log "Checking prefs, seeing " (:c @prefs))
+
+(doseq [x (:incoming @prefs)]
+  (js/console.log "Entry:" (clj->js x)))
 
 (def camera-row
   [:div.row [:div.col-md-12.cam [:iframe {:src "https://ipcamlive.com/player/player.php?alias=587ef72d38882"
@@ -65,25 +85,24 @@
                     s)
         out-note (+ sum PITCH-BASE)]
     (js/console.log "Central latched: " (str (map #(note-name %) s)) ", putting " (note-name out-note))
-    (swap! app-state
-           assoc :content
-           [:div
-            [:div.row [:div.col-md-12 [:h2 "Latched notes: " (str (map #(note-name %) s))]]]
-            [:div.row [:div.col-md-12 [:h3 "Output note: " (note-name out-note)]]]
-            ]
-           )
+    (set-row 0 [:h2 "Latched notes: " (str (map #(note-name %) s))])
+    (set-row 1 [:h3 "Output note: " (note-name out-note)])
     (.playNote dev out-note 1)))
 
-(defn central-note-on [dev pitch]
-  (js/console.log "< note on" pitch)
+(defn central-note-on [dev pitch t]
+  (js/console.log "< note on" pitch "at" t)
   (if SUMMING
-    (put-latched-total dev (swap! app-state update-in [:central-state :latched-set] conj pitch))
+    (do
+      (put-latched-total dev (swap! app-state update-in [:central-state :latched-set] conj pitch))
+      (swap! prefs update :incoming conj {:msg :on :pitch (note-name pitch) :local-time t}))
     (.playNote dev pitch 1)))
 
-(defn central-note-off [dev pitch]
-  (js/console.log "< note off" pitch)
+(defn central-note-off [dev pitch t]
+  (js/console.log "< note off" pitch "at" t)
   (if SUMMING
-    (put-latched-total dev (swap! app-state update-in [:central-state :latched-set] disj pitch))
+    (do
+      (put-latched-total dev (swap! app-state update-in [:central-state :latched-set] disj pitch))
+      (swap! prefs update :incoming conj {:msg :off :pitch (note-name pitch) :local-time t}))
     (.stopNote dev pitch 1)))
 
 (def INSTRUMENTS ["to Max 1" "USB Midi Dark Energy"])
@@ -102,24 +121,22 @@
                            (js/console.log "bytes" midi-bytes)
                            (let [status (bit-and (aget midi-bytes 0) 0xF0)
                                  pitch (aget midi-bytes 1)
-                                 velocity (aget midi-bytes 2)]
-                             (js/console.log "status" status "pitch" pitch)
+                                 velocity (aget midi-bytes 2)
+                                 t (aget msg "local-time")]
+                             (js/console.log "status" status "pitch" pitch "at" t)
                              (case status
                                0x90 (if (= velocity 0)
-                                      (central-note-off output pitch)
-                                      (central-note-on output pitch))
-                               0x80 (central-note-off output pitch)
+                                      (central-note-off output pitch t)
+                                      (central-note-on output pitch t))
+                               0x80 (central-note-off output pitch t)
                                (js/console.log "other status")))))))
-                (swap! app-state
-                       assoc :content
-                       [:div
-                        [:div.row [:div.col-md-12 [:h2 "Cannot find instrument"]]]
-                        [:div.row [:div.col-md-12 [:ul (map-indexed (fn [i t] [:li {:key i} "Tried: " t]) INSTRUMENTS)]]]])                      )))
+                (do
+                  (set-row 0 [:h2 "Cannot find instrument"])
+                  (set-row 1 [:ul (map-indexed (fn [i t] [:li {:key i} "Tried: " t]) INSTRUMENTS)])
+                  (set-row 2 [:div])))))
 
 (defn show-latch [how pitch]
-  (swap! app-state
-         assoc-in [:content 1]
-         [:div.row [:div.col-md-12 [:h2 (if how "ON: " "OFF: ") (note-name pitch)]]]))
+  (set-row 0 [:h2 (if how "ON: " "OFF: ") (note-name pitch)]))
 
 (defn note-on-normal [midi]
   (.emit socket "to_server" #js {:midi midi
@@ -158,25 +175,19 @@
                                                                 (js/WebMidi.getInputByName name)))
                                           nil CONTROLLERS)]
                       (do
-                       (swap! app-state
-                              assoc :content
-                              [:div
-                               [:div.row [:div.col-md-12 [:h2 "OFF"]]]
-                               camera-row
-                               ]
-                              )
+                        (set-row 0 [:div.col-md-12 [:h2 "OFF"]])
+                        (set-row 1 camera-row)
+                        (set-row 2 [:div])
+
                        (show-latch false 0)
                        (.addListener keys "noteon"  "all" #(do (js/console.log "noteon" %)
                                                                (note-on (.-data %))))
                        (.addListener keys "noteoff" "all" #(do (js/console.log "noteoff" %)
                                                                (note-off (.-data %)))))
-                      (swap! app-state
-                             assoc :content
-                             [:div
-                              [:div.row [:div.col-md-12 [:h2 "Cannot find controller"]]]
-                              [:div.row [:div.col-md-12 [:ul (map-indexed (fn [i t] [:li {:key i} "Tried: " t]) CONTROLLERS)]]]
-
-                              ])))))
+                      (do
+                        (set-row 0 [:h2 "Cannot find controller"])
+                        (set-row 1 [:ul (map-indexed (fn [i t] [:li {:key i} "Tried: " t]) CONTROLLERS)])
+                        (set-row 2 [:div]))))))
 
 (defn LIST
   "List of MIDI devices."
@@ -203,3 +214,4 @@
   )
 
 ;;(SATELLITE)
+;;(MAIN_SITE)
