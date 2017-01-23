@@ -213,5 +213,5 @@
   ;; (swap! app-state update-in [:__figwheel_counter] inc)
   )
 
-;;(SATELLITE)
+(SATELLITE)
 ;;(MAIN_SITE)
