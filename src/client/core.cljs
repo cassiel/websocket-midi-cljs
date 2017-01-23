@@ -17,7 +17,7 @@
 ;; define your app data so that it doesn't get over-written on reload
 
 (defonce app-state (atom {:content [:div
-                                    [:div.row [:div.col-md-12 [:h2 "Ready"]]]
+                                    [:div.row [:div.col-md-12 [:h2 "Starting"]]]
                                     [:div.row [:div.col-md-12]]
                                     [:div.row [:div.col-md-12]]]
                           :satellite-state {:latch false}
@@ -105,7 +105,7 @@
       (swap! prefs update :incoming conj {:msg :off :pitch (note-name pitch) :local-time t}))
     (.stopNote dev pitch 1)))
 
-(def INSTRUMENTS ["to Max 1" "USB Midi Dark Energy"])
+(def INSTRUMENTS ["to Max" "Dark"])
 
 (defn MAIN_SITE
   "Respond to MIDI coming in from the server, send to modular."
@@ -166,7 +166,7 @@
 (def note-on (if LATCHING note-on-latch note-on-normal))
 (def note-off (if LATCHING note-off-latch note-off-normal))
 
-(def CONTROLLERS ["from Max 1" "Logidy UMI3"])
+(def CONTROLLERS ["from Max" "Logidy"])
 
 (defn SATELLITE
   "Take MIDI from foot switch, send up to server."
