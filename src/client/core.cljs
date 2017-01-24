@@ -87,14 +87,19 @@
     (js/console.log "Central latched: " (str (map #(note-name %) s)) ", putting " (note-name out-note))
     (set-row 0 [:h2 "Latched notes: " (str (map #(note-name %) s))])
     (set-row 1 [:h3 "Output note: " (note-name out-note)])
-    (.playNote dev out-note 1)))
+    (.playNote dev out-note 1 #js {:duration 100 :velocity 0.5})))
+
+(defn append-msg [log msg]
+  (as-> log X
+    (conj X msg)
+    (take 1000 X)))
 
 (defn central-note-on [dev pitch t]
   (js/console.log "< note on" pitch "at" t)
   (if SUMMING
     (do
       (put-latched-total dev (swap! app-state update-in [:central-state :latched-set] conj pitch))
-      (swap! prefs update :incoming conj {:msg :on :pitch (note-name pitch) :local-time t}))
+      (swap! prefs update :incoming append-msg {:msg :on :pitch (note-name pitch) :local-time t}))
     (.playNote dev pitch 1)))
 
 (defn central-note-off [dev pitch t]
@@ -102,7 +107,7 @@
   (if SUMMING
     (do
       (put-latched-total dev (swap! app-state update-in [:central-state :latched-set] disj pitch))
-      (swap! prefs update :incoming conj {:msg :off :pitch (note-name pitch) :local-time t}))
+      (swap! prefs update :incoming append-msg {:msg :off :pitch (note-name pitch) :local-time t}))
     (.stopNote dev pitch 1)))
 
 (def INSTRUMENTS ["to Max" "Dark"])
